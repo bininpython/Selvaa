@@ -1,0 +1,11 @@
+{
+  "name": "SELVA+ — A rede social dos aventureiros",
+  "short_name": "SELVA+",
+  "description": "Explore, registre, compartilhe e preserve.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F5F7F5",
+  "theme_color": "#063D24",
+  "orientation": "portrait-primary",
+  "icons": [{ "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}
