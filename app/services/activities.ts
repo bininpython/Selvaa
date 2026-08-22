@@ -1,12 +1,32 @@
-import { calculateActivityMetrics } from "../lib/activity-metrics";
+import { calculateActivityMetrics, distanceMeters } from "../lib/activity-metrics";
 import { deleteOfflineActivity, updateOfflineActivity } from "../lib/offline-route";
 import { createClient } from "../lib/supabase/client";
 import type { Activity, PublishActivityInput } from "../types/domain";
+
+const PRIVATE_ENDPOINT_RADIUS_M = 200;
+
+function publicRoutePoints(points: PublishActivityInput["points"], hideEndpoints: boolean) {
+  if (!hideEndpoints || points.length < 3) return points;
+  const firstVisible = points.findIndex((point) => distanceMeters(points[0], point) >= PRIVATE_ENDPOINT_RADIUS_M);
+  let lastVisible = -1;
+  for (let index = points.length - 1; index >= 0; index -= 1) {
+    if (distanceMeters(points.at(-1)!, points[index]) >= PRIVATE_ENDPOINT_RADIUS_M) {
+      lastVisible = index;
+      break;
+    }
+  }
+  return firstVisible >= 0 && lastVisible > firstVisible ? points.slice(firstVisible, lastVisible + 1) : [];
+}
 
 export async function publishActivity(userId: string, input: PublishActivityInput) {
   const supabase = createClient();
   if (!supabase) throw new Error("Supabase não configurado");
   const metrics = calculateActivityMetrics(input.points, input.durationSeconds);
+  const { data: privacy } = await supabase.from("profiles")
+    .select("hide_route_endpoints")
+    .eq("id", userId)
+    .maybeSingle();
+  const visiblePoints = publicRoutePoints(input.points, privacy?.hide_route_endpoints !== false);
   await updateOfflineActivity(input.localId, { status: "syncing", title: input.title, description: input.description });
 
   const { data: activity, error: activityError } = await supabase.from("activities").insert({
@@ -29,7 +49,9 @@ export async function publishActivity(userId: string, input: PublishActivityInpu
     difficulty: input.difficulty,
     trail_conditions: input.trailConditions || null,
     visibility: input.visibility,
-    route_geojson: { type: "LineString", coordinates: input.points.map((point) => [point.longitude, point.latitude]) },
+    route_geojson: visiblePoints.length >= 2
+      ? { type: "LineString", coordinates: visiblePoints.map((point) => [point.longitude, point.latitude]) }
+      : null,
     sync_status: "syncing",
   }).select().single();
   if (activityError) {
