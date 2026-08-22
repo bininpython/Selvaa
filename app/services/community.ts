@@ -40,11 +40,10 @@ export async function respondToEvent(userId: string, eventId: string, response: 
   if (error) throw new Error(`Não foi possível responder ao evento: ${error.message}`);
 }
 
-export async function updateProfile(userId: string, input: Pick<Profile, "full_name" | "username" | "bio" | "city" | "state" | "experience_level" | "profile_visibility" | "hide_route_endpoints">) {
+export async function updateProfile(userId: string, input: Pick<Profile, "full_name" | "bio" | "city" | "state" | "experience_level" | "profile_visibility" | "hide_route_endpoints">) {
   const supabase = createClient();
   if (!supabase) throw new Error("Supabase não configurado");
-  const username = input.username.trim().replace(/^@/, "").toLowerCase();
-  const { error } = await supabase.from("profiles").update({ ...input, username, full_name: input.full_name.trim(), bio: input.bio?.trim() || null, city: input.city?.trim() || null, state: input.state?.trim().toUpperCase() || null }).eq("id", userId);
+  const { error } = await supabase.from("profiles").update({ ...input, full_name: input.full_name.trim(), bio: input.bio?.trim() || null, city: input.city?.trim() || null, state: input.state?.trim().toUpperCase() || null }).eq("id", userId);
   if (error) throw new Error(`Não foi possível atualizar o perfil: ${error.message}`);
 }
 
