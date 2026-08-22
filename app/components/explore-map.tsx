@@ -36,6 +36,8 @@ export function ExploreMap({ compact = false, tracking = false, route = [], mark
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
   const [ready, setReady] = useState(false);
+  const [mountAttempt, setMountAttempt] = useState(0);
+  const [mapMessage, setMapMessage] = useState("O GPS e o registro offline continuam disponíveis.");
   const [locationStatus, setLocationStatus] = useState<"idle" | "locating" | "located" | "denied">("idle");
 
   useEffect(() => {
@@ -46,8 +48,10 @@ export function ExploreMap({ compact = false, tracking = false, route = [], mark
       try {
         const maplibre = await import("maplibre-gl");
         if (cancelled || !mapNode.current) return;
+        maplibre.setWorkerUrl("/maplibre/maplibre-gl-worker.mjs");
         const supportCanvas = document.createElement("canvas");
         if (!supportCanvas.getContext("webgl2")) {
+          setMapMessage("Este navegador bloqueou o recurso gráfico necessário. O GPS continua funcionando normalmente.");
           setFailed(true);
           setLoading(false);
           return;
@@ -61,17 +65,22 @@ export function ExploreMap({ compact = false, tracking = false, route = [], mark
           center: initialCenter,
           zoom: initialRoute.length ? 15 : compact ? 11 : 6.2,
           attributionControl: false,
+          cooperativeGestures: true,
         });
 
         map.addControl(new maplibre.NavigationControl({ showCompass: true }), "bottom-right");
         map.addControl(new maplibre.AttributionControl({ compact: true }), "bottom-left");
-        map.on("error", () => {
-          if (cancelled) return;
+        let mapLoaded = false;
+        const loadTimeout = window.setTimeout(() => {
+          if (cancelled || mapLoaded) return;
+          setMapMessage("A conexão com o mapa demorou mais que o esperado. Você pode tentar novamente sem perder o GPS.");
           setFailed(true);
           setLoading(false);
-        });
+        }, 15_000);
         map.on("load", () => {
           if (cancelled) return;
+          mapLoaded = true;
+          window.clearTimeout(loadTimeout);
           map.addSource("activity-route", {
             type: "geojson",
             data: routeFeature(initialRoute),
@@ -87,11 +96,18 @@ export function ExploreMap({ compact = false, tracking = false, route = [], mark
               "line-opacity": 0.95,
             },
           });
+          map.resize();
           setLoading(false);
+          setFailed(false);
           setReady(true);
+        });
+        map.on("error", () => {
+          if (cancelled || mapLoaded) return;
+          setMapMessage("Não foi possível baixar os dados do mapa. Verifique a conexão e tente novamente.");
         });
         mapRef.current = map;
       } catch {
+        setMapMessage("Não foi possível iniciar o mapa neste navegador. O GPS continua disponível.");
         setFailed(true);
         setLoading(false);
       }
@@ -107,7 +123,7 @@ export function ExploreMap({ compact = false, tracking = false, route = [], mark
       try { mapRef.current?.remove(); } catch { /* A partially initialized WebGL map has no painter to destroy. */ }
       mapRef.current = null;
     };
-  }, [compact]);
+  }, [compact, mountAttempt]);
 
   useEffect(() => {
     if (!ready || !mapRef.current) return;
@@ -140,7 +156,7 @@ export function ExploreMap({ compact = false, tracking = false, route = [], mark
   }, [markers, ready]);
 
   async function locateUser() {
-    if (!("geolocation" in navigator) || !mapRef.current) {
+    if (!("geolocation" in navigator)) {
       setLocationStatus("denied");
       return;
     }
@@ -148,16 +164,18 @@ export function ExploreMap({ compact = false, tracking = false, route = [], mark
     setLocationStatus("locating");
     navigator.geolocation.getCurrentPosition(async ({ coords }) => {
       const current: RouteCoordinate = [coords.longitude, coords.latitude];
-      const maplibre = await import("maplibre-gl");
-      const markerNode = document.createElement("span");
-      markerNode.className = "user-location-marker";
-      markerNode.setAttribute("aria-label", "Sua localização aproximada");
+      if (mapRef.current && ready) {
+        const maplibre = await import("maplibre-gl");
+        const markerNode = document.createElement("span");
+        markerNode.className = "user-location-marker";
+        markerNode.setAttribute("aria-label", "Sua localização aproximada");
 
-      locationMarkerRef.current?.remove();
-      locationMarkerRef.current = new maplibre.Marker({ element: markerNode })
-        .setLngLat(current)
-        .addTo(mapRef.current!);
-      mapRef.current?.flyTo({ center: current, zoom: 14.5, duration: 900 });
+        locationMarkerRef.current?.remove();
+        locationMarkerRef.current = new maplibre.Marker({ element: markerNode })
+          .setLngLat(current)
+          .addTo(mapRef.current);
+        mapRef.current.flyTo({ center: current, zoom: 14.5, duration: 900 });
+      }
       setLocationStatus("located");
       onLocated?.(current);
     }, () => setLocationStatus("denied"), {
@@ -171,7 +189,7 @@ export function ExploreMap({ compact = false, tracking = false, route = [], mark
     <div className={`map-shell ${compact ? "map-compact" : ""}`}>
       <div ref={mapNode} className="absolute inset-0" />
       {loading ? <div className="map-state"><LoaderCircle className="animate-spin" size={20} /> Preparando mapa…</div> : null}
-      {failed ? <div className="map-fallback"><Mountain size={28} /><strong>Mapa temporariamente indisponível</strong><span>O registro offline continua protegido no dispositivo.</span></div> : null}
+      {failed ? <div className="map-fallback"><Mountain size={28} /><strong>Mapa temporariamente indisponível</strong><span>{mapMessage}</span><button type="button" onClick={() => { setFailed(false); setLoading(true); setReady(false); setMountAttempt((attempt) => attempt + 1); }}>Tentar novamente</button></div> : null}
       {!tracking ? (
         <button className="map-locate" onClick={locateUser} aria-label="Usar minha localização">
           {locationStatus === "locating" ? <LoaderCircle className="animate-spin" size={18} /> : <LocateFixed size={18} />}
