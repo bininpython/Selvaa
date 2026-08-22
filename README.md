@@ -12,9 +12,13 @@ MVP responsivo/PWA para trilhas, trekking, montanhismo, cachoeiras, camping e co
 - Mapa MapLibre/OpenFreeMap com localização consentida e descoberta de trilhas por proximidade via PostGIS.
 - Atividade GPS real com cronômetro, pausa, distância, ritmo, elevação, retomada e fila offline em IndexedDB.
 - Finalização e publicação sincronizam atividade, pontos GPS em lotes, post e fotos no Supabase.
-- Perfil, resumo semanal, estatísticas, grupos, eventos, pesquisa global e ocorrências ambientais conectados ao banco.
+- Exploração com busca/filtros, detalhes completos, cadastro, avaliação e salvamento de trilhas.
+- Grupos com entrada/saída e privacidade; eventos com criação, vagas e respostas Vou/Talvez/Não vou.
+- Perfil editável, privacidade de rota, passaporte, conquistas automáticas e busca global com seguir/deixar de seguir.
+- Mapa ambiental com filtros, confirmações comunitárias e ocorrências geolocalizadas.
+- Central de notificações alimentada por curtidas, comentários, seguidores e conquistas.
 - Migrations PostgreSQL/PostGIS com índices geoespaciais, contadores transacionais, RLS e Storage privado.
-- Manifest PWA e experiência responsiva de 360 px a desktop.
+- Manifest, service worker e shell offline PWA; experiência responsiva de 360 px a desktop.
 
 ## Instalação e execução
 
@@ -35,6 +39,8 @@ Configure `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`. `
 5. Habilite Google/Apple em Authentication quando tiver as credenciais OAuth.
 6. Adicione os domínios de produção e preview às redirect URLs do Auth.
 7. Mantenha `activity-photos` privado; o app entrega fotos conforme a visibilidade por URLs temporárias.
+
+O banco é entregue sem perfis, trilhas, posts, grupos, eventos ou atividades fictícias. O `seed.sql` contém apenas as regras de conquistas.
 
 ## Deploy Vercel
 
