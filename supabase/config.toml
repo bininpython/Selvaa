@@ -14,6 +14,9 @@ site_url = "http://localhost:3000"
 additional_redirect_urls = ["http://localhost:3000/**"]
 enable_signup = true
 
+[functions.username-signup]
+verify_jwt = false
+
 [storage]
 enabled = true
 file_size_limit = "25MiB"
