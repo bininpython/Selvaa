@@ -7,5 +7,8 @@
   "background_color": "#F5F7F5",
   "theme_color": "#063D24",
   "orientation": "portrait-primary",
-  "icons": [{ "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+  "icons": [
+    { "src": "/brand/selva-symbol.png", "sizes": "384x384", "type": "image/png", "purpose": "any" },
+    { "src": "/brand/selva-symbol.png", "sizes": "384x384", "type": "image/png", "purpose": "maskable" }
+  ]
 }

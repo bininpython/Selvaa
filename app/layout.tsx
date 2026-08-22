@@ -3,8 +3,8 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://selva-plus.oai-site.app"),
-  title: "SELVA+",
+  metadataBase: new URL("https://selva-plus.abnerlucas571.chatgpt.site"),
+  title: { default: "SELVA+", template: "%s | SELVA+" },
   description: "A rede social dos aventureiros. Explore, registre, compartilhe e preserve.",
   applicationName: "SELVA+",
   manifest: "/manifest.webmanifest",
@@ -12,8 +12,9 @@ export const metadata: Metadata = {
   openGraph: { title: "SELVA+ — A rede social dos aventureiros", description: "Explore. Registre. Compartilhe. Preserve.", type: "website", locale: "pt_BR", images: [{ url: "/og.png", width: 1200, height: 630, alt: "SELVA+ — A rede social dos aventureiros" }] },
   twitter: { card: "summary_large_image", title: "SELVA+ — A rede social dos aventureiros", description: "Explore. Registre. Compartilhe. Preserve.", images: ["/og.png"] },
   icons: {
-    icon: "/favicon.svg",
-    shortcut: "/favicon.svg",
+    icon: "/brand/selva-symbol.png",
+    shortcut: "/brand/selva-symbol.png",
+    apple: "/brand/selva-symbol.png",
   },
 };
 

@@ -4,10 +4,12 @@
 
 MVP responsivo/PWA para trilhas, trekking, montanhismo, cachoeiras, camping e colaboração ambiental. Usa Next.js, React, TypeScript, Tailwind, MapLibre/OpenFreeMap e Supabase/PostGIS.
 
-## Recursos implementados
+## Estado do MVP
 
-- Home, mapa interativo, feed social, grupos, eventos, perfil, passaporte e conquistas.
-- Atividade GPS com cronômetro, pausa, finalização e pontos salvos offline em IndexedDB.
+- Interface inicial virgem: sem usuários, fotos, estatísticas, trilhas, posts, grupos ou eventos fictícios.
+- Apresentação dos cinco pilares do produto e estados vazios para feed, comunidade, perfil e passaporte.
+- Mapa MapLibre/OpenFreeMap com localização real mediante consentimento, sem percurso ou marcadores simulados.
+- Atividade GPS real com cronômetro, pausa, finalização, distância, elevação e pontos salvos offline em IndexedDB.
 - Login/cadastro Supabase por e-mail e estrutura pronta para Google/Apple.
 - Migration PostgreSQL/PostGIS com todas as tabelas do MVP, índices, RLS e Storage policies.
 - Manifest PWA e experiência responsiva de 360 px a desktop.
@@ -26,7 +28,7 @@ Configure `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_ANON_KEY`. Nunca ex
 
 1. Crie um projeto exclusivo para o SELVA+.
 2. Aplique `supabase/migrations/20260822165337_initial_selva_schema.sql` no SQL Editor.
-3. Aplique `supabase/seed.sql`.
+3. Opcionalmente aplique `supabase/seed.sql`; ele cadastra somente a definição das conquistas, sem criar usuários ou conteúdo social.
 4. Configure URL e chave pública em `.env.local`.
 5. Habilite Google/Apple em Authentication quando tiver as credenciais OAuth.
 6. Adicione o domínio Vercel aos redirect URLs do Auth.

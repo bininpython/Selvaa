@@ -1,13 +1,32 @@
-type BrandMarkProps = { size?: "sm" | "md" | "lg"; dark?: boolean; withName?: boolean };
+import Image from "next/image";
 
-export function BrandMark({ size = "md", dark = false, withName = true }: BrandMarkProps) {
-  const dimensions = size === "lg" ? "h-14 w-14" : size === "sm" ? "h-9 w-9" : "h-11 w-11";
+type BrandMarkProps = {
+  size?: "sm" | "md" | "lg";
+  withName?: boolean;
+  inverted?: boolean;
+};
+
+const sizeMap = {
+  sm: 36,
+  md: 44,
+  lg: 56,
+} as const;
+
+export function BrandMark({ size = "md", withName = true, inverted = false }: BrandMarkProps) {
+  const pixels = sizeMap[size];
+
   return (
-    <div className="brand-lockup" aria-label="SELVA+">
-      <span className={`brand-symbol ${dimensions} ${dark ? "brand-symbol-dark" : ""}`} aria-hidden="true">
-        <span className="brand-s">S</span><span className="brand-plus">+</span>
-      </span>
-      {withName && <span className="brand-name">SELVA<span>+</span></span>}
+    <div className={`brand-lockup ${inverted ? "brand-lockup-inverted" : ""}`} aria-label="SELVA+">
+      <Image
+        className="brand-symbol-image"
+        src="/brand/selva-symbol.png"
+        width={pixels}
+        height={pixels}
+        sizes={`${pixels}px`}
+        alt=""
+        priority
+      />
+      {withName ? <span className="brand-name">SELVA<span>+</span></span> : null}
     </div>
   );
 }
