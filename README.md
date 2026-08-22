@@ -7,11 +7,13 @@ MVP responsivo/PWA para trilhas, trekking, montanhismo, cachoeiras, camping e co
 ## Estado do MVP
 
 - Interface inicial virgem: sem usuários, fotos, estatísticas, trilhas, posts, grupos ou eventos fictícios.
-- Apresentação dos cinco pilares do produto e estados vazios para feed, comunidade, perfil e passaporte.
-- Mapa MapLibre/OpenFreeMap com localização real mediante consentimento, sem percurso ou marcadores simulados.
-- Atividade GPS real com cronômetro, pausa, finalização, distância, elevação e pontos salvos offline em IndexedDB.
-- Login/cadastro Supabase por e-mail e estrutura pronta para Google/Apple.
-- Migration PostgreSQL/PostGIS com todas as tabelas do MVP, índices, RLS e Storage policies.
+- Sessão Supabase persistente, cadastro, login, recuperação de senha e OAuth preparado para Google/Apple.
+- Feed real paginado com atividades, mapas, fotos privadas por URL assinada, curtidas, comentários e salvos.
+- Mapa MapLibre/OpenFreeMap com localização consentida e descoberta de trilhas por proximidade via PostGIS.
+- Atividade GPS real com cronômetro, pausa, distância, ritmo, elevação, retomada e fila offline em IndexedDB.
+- Finalização e publicação sincronizam atividade, pontos GPS em lotes, post e fotos no Supabase.
+- Perfil, resumo semanal, estatísticas, grupos, eventos, pesquisa global e ocorrências ambientais conectados ao banco.
+- Migrations PostgreSQL/PostGIS com índices geoespaciais, contadores transacionais, RLS e Storage privado.
 - Manifest PWA e experiência responsiva de 360 px a desktop.
 
 ## Instalação e execução
@@ -27,11 +29,12 @@ Configure `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_ANON_KEY`. Nunca ex
 ## Configuração Supabase
 
 1. Crie um projeto exclusivo para o SELVA+.
-2. Aplique `supabase/migrations/20260822165337_initial_selva_schema.sql` no SQL Editor.
+2. Aplique, nesta ordem, todas as migrations em `supabase/migrations/`.
 3. Opcionalmente aplique `supabase/seed.sql`; ele cadastra somente a definição das conquistas, sem criar usuários ou conteúdo social.
 4. Configure URL e chave pública em `.env.local`.
 5. Habilite Google/Apple em Authentication quando tiver as credenciais OAuth.
-6. Adicione o domínio Vercel aos redirect URLs do Auth.
+6. Adicione os domínios de produção e preview às redirect URLs do Auth.
+7. Mantenha `activity-photos` privado; o app entrega fotos conforme a visibilidade por URLs temporárias.
 
 ## Deploy Vercel
 
@@ -59,6 +62,9 @@ Mover `app/types` e `app/services` para `packages/types` e `packages/api`, crian
 ## Segurança
 
 - Todas as tabelas do Supabase possuem Row Level Security.
+- Funções de trigger usam `search_path` fixo e não ficam executáveis pelo cliente.
+- Papéis administrativos de grupos não podem ser autoatribuídos.
+- Fotos de atividades respeitam a visibilidade pública, seguidores ou privada.
 - A service-role key não é usada no frontend nem faz parte das variáveis públicas.
 - Localização precisa, pontos inicial/final e visibilidade ficam sob controle do usuário.
 - O SELVA+ não substitui serviços oficiais de emergência.

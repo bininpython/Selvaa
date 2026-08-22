@@ -10,6 +10,8 @@ type ExploreMapProps = {
   compact?: boolean;
   tracking?: boolean;
   route?: RouteCoordinate[];
+  markers?: { id: string; coordinate: RouteCoordinate; label: string }[];
+  onLocated?: (coordinate: RouteCoordinate) => void;
 };
 
 const DEFAULT_CENTER: RouteCoordinate = [-43.938, -19.919];
@@ -25,10 +27,11 @@ function routeFeature(route: RouteCoordinate[]) {
   };
 }
 
-export function ExploreMap({ compact = false, tracking = false, route = [] }: ExploreMapProps) {
+export function ExploreMap({ compact = false, tracking = false, route = [], markers = [], onLocated }: ExploreMapProps) {
   const mapNode = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const locationMarkerRef = useRef<Marker | null>(null);
+  const discoveryMarkersRef = useRef<Marker[]>([]);
   const initialRouteRef = useRef(route);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
@@ -87,6 +90,8 @@ export function ExploreMap({ compact = false, tracking = false, route = [] }: Ex
     return () => {
       cancelled = true;
       locationMarkerRef.current?.remove();
+      discoveryMarkersRef.current.forEach((marker) => marker.remove());
+      discoveryMarkersRef.current = [];
       locationMarkerRef.current = null;
       mapRef.current?.remove();
       mapRef.current = null;
@@ -103,6 +108,25 @@ export function ExploreMap({ compact = false, tracking = false, route = [] }: Ex
       mapRef.current.easeTo({ center: current, zoom: 16, duration: 450 });
     }
   }, [ready, route, tracking]);
+
+  useEffect(() => {
+    if (!ready || !mapRef.current) return;
+    discoveryMarkersRef.current.forEach((marker) => marker.remove());
+    discoveryMarkersRef.current = [];
+    let cancelled = false;
+    void import("maplibre-gl").then((maplibre) => {
+      if (cancelled || !mapRef.current) return;
+      discoveryMarkersRef.current = markers.map((item) => {
+        const node = document.createElement("button");
+        node.className = "trail-map-marker";
+        node.type = "button";
+        node.setAttribute("aria-label", item.label);
+        node.title = item.label;
+        return new maplibre.Marker({ element: node }).setLngLat(item.coordinate).addTo(mapRef.current!);
+      });
+    });
+    return () => { cancelled = true; };
+  }, [markers, ready]);
 
   async function locateUser() {
     if (!("geolocation" in navigator) || !mapRef.current) {
@@ -124,6 +148,7 @@ export function ExploreMap({ compact = false, tracking = false, route = [] }: Ex
         .addTo(mapRef.current!);
       mapRef.current?.flyTo({ center: current, zoom: 14.5, duration: 900 });
       setLocationStatus("located");
+      onLocated?.(current);
     }, () => setLocationStatus("denied"), {
       enableHighAccuracy: true,
       maximumAge: 10_000,

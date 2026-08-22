@@ -7,6 +7,7 @@ export const metadata: Metadata = {
   title: { default: "SELVA+", template: "%s | SELVA+" },
   description: "A rede social dos aventureiros. Explore, registre, compartilhe e preserve.",
   applicationName: "SELVA+",
+  other: { "codex-preview": "development" },
   manifest: "/manifest.webmanifest",
   appleWebApp: { capable: true, title: "SELVA+", statusBarStyle: "black-translucent" },
   openGraph: { title: "SELVA+ — A rede social dos aventureiros", description: "Explore. Registre. Compartilhe. Preserve.", type: "website", locale: "pt_BR", images: [{ url: "/og.png", width: 1200, height: 630, alt: "SELVA+ — A rede social dos aventureiros" }] },
