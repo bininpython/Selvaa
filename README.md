@@ -24,7 +24,7 @@ cp .env.example .env.local
 npm run dev
 ```
 
-Configure `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_ANON_KEY`. Nunca exponha uma service-role/secret key no frontend.
+Configure `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`. `NEXT_PUBLIC_SUPABASE_ANON_KEY` permanece aceito apenas por compatibilidade. Nunca exponha uma service-role/secret key no frontend.
 
 ## Configuração Supabase
 
@@ -41,7 +41,7 @@ Configure `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_ANON_KEY`. Nunca ex
 O arquivo `vercel.json` mantém um build Next.js dedicado ao Vercel sem alterar o build Vinext usado pelo Sites.
 
 1. Importe o repositório do GitHub no Vercel.
-2. Configure `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
+2. Configure `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`.
 3. Opcionalmente configure `NEXT_PUBLIC_MAP_TOKEN` caso troque o mapa padrão por Mapbox.
 4. Faça o deploy com o preset Next.js; o comando de build já está definido.
 
