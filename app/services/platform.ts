@@ -69,7 +69,7 @@ export async function loadFeed(userId?: string, from = 0, limit = 15): Promise<F
   if (!paths.length) return posts;
   const { data: signed } = await supabase.storage.from("activity-photos").createSignedUrls(paths, 3600);
   const urls = new Map((signed ?? []).map((item) => [item.path, item.signedUrl]));
-  return posts.map((post) => ({ ...post, photos: post.photos.map((photo) => ({ ...photo, signed_url: urls.get(photo.storage_path) })) }));
+  return posts.map((post) => ({ ...post, photos: post.photos.map((photo) => ({ ...photo, signed_url: urls.get(photo.storage_path) ?? undefined })) }));
 }
 
 export async function toggleLike(userId: string, postId: string, liked: boolean) {
