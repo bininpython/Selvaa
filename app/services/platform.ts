@@ -102,7 +102,9 @@ export type GlobalSearchResult = { id: string; type: "user" | "trail" | "group" 
 export async function globalSearch(query: string): Promise<GlobalSearchResult[]> {
   const supabase = createClient();
   if (!supabase || query.trim().length < 2) return [];
-  const value = `%${query.trim().replaceAll("%", "\\%").replaceAll("_", "\\_")}%`;
+  const safeQuery = query.trim().replace(/[,%_().]/g, " ").replace(/\s+/g, " ").slice(0, 80);
+  if (safeQuery.length < 2) return [];
+  const value = `%${safeQuery}%`;
   const [profiles, trails, groups, events] = await Promise.all([
     supabase.from("profiles").select("id,full_name,username,city,state").or(`full_name.ilike.${value},username.ilike.${value}`).limit(5),
     supabase.from("trails").select("id,name,city,state,difficulty").ilike("name", value).limit(5),
@@ -140,7 +142,7 @@ export async function createEnvironmentReport(userId: string, input: { category:
     const path = `${userId}/${crypto.randomUUID()}.${extension}`;
     const { error } = await supabase.storage.from("environment-reports").upload(path, input.photo);
     if (error) throw new Error(`Não foi possível enviar a foto: ${error.message}`);
-    photoUrl = supabase.storage.from("environment-reports").getPublicUrl(path).data.publicUrl;
+    photoUrl = path;
   }
   const { error } = await supabase.from("environment_reports").insert({ user_id: userId, category: input.category, description: input.description, latitude: input.latitude, longitude: input.longitude, photo_url: photoUrl });
   if (error) throw new Error(`Não foi possível criar a ocorrência: ${error.message}`);
