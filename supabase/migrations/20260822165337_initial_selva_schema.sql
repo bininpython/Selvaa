@@ -359,7 +359,10 @@ create policy "visible activities are readable" on public.activities for select 
 create policy "users create own activities" on public.activities for insert to authenticated with check (user_id = (select auth.uid()));
 create policy "users update own activities" on public.activities for update to authenticated using (user_id = (select auth.uid())) with check (user_id = (select auth.uid()));
 create policy "users delete own activities" on public.activities for delete to authenticated using (user_id = (select auth.uid()));
-create policy "activity points follow activity visibility" on public.activity_points for select using (exists (select 1 from public.activities a where a.id = activity_id and (a.user_id = (select auth.uid()) or a.visibility = 'public')));
+-- Raw GPS samples are precise and stay private. Public routes use the sanitized
+-- GeoJSON stored on activities instead of exposing the underlying samples.
+create policy "owners read precise activity points" on public.activity_points for select to authenticated
+using (exists (select 1 from public.activities a where a.id = activity_id and a.user_id = (select auth.uid())));
 create policy "owners manage activity points" on public.activity_points for all to authenticated using (exists (select 1 from public.activities a where a.id = activity_id and a.user_id = (select auth.uid()))) with check (exists (select 1 from public.activities a where a.id = activity_id and a.user_id = (select auth.uid())));
 
 create policy "public content photos readable" on public.activity_photos for select using (exists (select 1 from public.activities a where a.id = activity_id and (a.user_id = (select auth.uid()) or a.visibility = 'public')));
@@ -425,17 +428,53 @@ create policy "users create reports" on public.reports for insert to authenticat
 create policy "users read own reports" on public.reports for select to authenticated using (reporter_id = (select auth.uid()));
 
 insert into storage.buckets (id, name, public) values
-  ('avatars','avatars',true), ('covers','covers',true), ('activity-photos','activity-photos',true),
-  ('trail-photos','trail-photos',true), ('group-images','group-images',true), ('environment-reports','environment-reports',true)
+  ('avatars','avatars',false), ('covers','covers',false), ('activity-photos','activity-photos',false),
+  ('trail-photos','trail-photos',false), ('group-images','group-images',false), ('environment-reports','environment-reports',false)
 on conflict (id) do nothing;
 
-create policy "public media readable" on storage.objects for select using (bucket_id in ('avatars','covers','activity-photos','trail-photos','group-images','environment-reports'));
+-- Buckets remain private. Object reads are mediated by RLS and temporary signed
+-- URLs, so changing a database row's visibility also revokes future access.
+create policy "community media readable" on storage.objects for select to anon, authenticated
+using (bucket_id in ('avatars','covers','trail-photos','group-images','environment-reports'));
 create policy "users upload own media" on storage.objects for insert to authenticated with check (bucket_id in ('avatars','covers','activity-photos','trail-photos','group-images','environment-reports') and (storage.foldername(name))[1] = (select auth.uid())::text);
-create policy "users update own media" on storage.objects for update to authenticated using ((storage.foldername(name))[1] = (select auth.uid())::text) with check ((storage.foldername(name))[1] = (select auth.uid())::text);
-create policy "users delete own media" on storage.objects for delete to authenticated using ((storage.foldername(name))[1] = (select auth.uid())::text);
+create policy "users update own media" on storage.objects for update to authenticated
+using (bucket_id in ('avatars','covers','activity-photos','trail-photos','group-images','environment-reports') and (storage.foldername(name))[1] = (select auth.uid())::text)
+with check (bucket_id in ('avatars','covers','activity-photos','trail-photos','group-images','environment-reports') and (storage.foldername(name))[1] = (select auth.uid())::text);
+create policy "users delete own media" on storage.objects for delete to authenticated
+using (bucket_id in ('avatars','covers','activity-photos','trail-photos','group-images','environment-reports') and (storage.foldername(name))[1] = (select auth.uid())::text);
+
+-- New Supabase projects may still inherit broad default grants. Reset them
+-- before opting each client role into the minimum API surface below.
+revoke all on all tables in schema public from anon, authenticated;
+revoke all on all sequences in schema public from anon, authenticated;
+revoke all on all functions in schema public from anon, authenticated;
+alter default privileges for role postgres in schema public
+  revoke select, insert, update, delete, truncate, references, trigger on tables from anon, authenticated;
+alter default privileges for role postgres in schema public
+  revoke usage, select, update on sequences from anon, authenticated;
+alter default privileges for role postgres in schema public
+  revoke execute on functions from public, anon, authenticated;
 
 grant usage on schema public to anon, authenticated;
-grant select on public.trails, public.trail_photos, public.trail_reviews, public.trail_conditions, public.places, public.achievements to anon, authenticated;
-grant select, insert, update, delete on all tables in schema public to authenticated;
-grant usage, select on all sequences in schema public to authenticated;
+grant select on
+  public.profiles, public.trails, public.activities, public.activity_photos,
+  public.trail_photos, public.trail_reviews, public.trail_conditions, public.places,
+  public.follows, public.posts, public.post_photos, public.likes, public.comments,
+  public.groups, public.group_members, public.group_posts, public.events,
+  public.event_participants, public.environment_reports, public.report_confirmations,
+  public.achievements, public.user_achievements, public.user_statistics,
+  public.collections, public.collection_items
+to anon;
+grant select on all tables in schema public to authenticated;
+grant update on public.profiles to authenticated;
+grant insert, update, delete on public.trails, public.activities, public.activity_points,
+  public.activity_photos, public.trail_photos, public.trail_reviews, public.trail_conditions,
+  public.places, public.follows, public.posts, public.post_photos, public.likes,
+  public.comments, public.groups, public.group_members, public.group_posts, public.events,
+  public.event_participants, public.environment_reports, public.report_confirmations,
+  public.collections, public.collection_items, public.saved_items, public.blocks
+to authenticated;
+grant insert on public.reports to authenticated;
+grant update on public.notifications to authenticated;
+grant usage, select on sequence public.activity_points_id_seq to authenticated;
 grant execute on function public.nearby_trails(double precision, double precision, integer) to anon, authenticated;
