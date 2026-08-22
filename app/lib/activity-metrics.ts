@@ -40,13 +40,13 @@ export function calculateActivityMetrics(points: RecordedPoint[], durationSecond
 
   return {
     distanceM,
-    movingTimeSeconds: Math.min(durationSeconds, Math.round(movingTimeSeconds || durationSeconds)),
+    movingTimeSeconds: Math.min(durationSeconds, Math.round(movingTimeSeconds)),
     elevationGainM,
     elevationLossM,
     minAltitudeM: altitudes.length ? Math.min(...altitudes) : null,
     maxAltitudeM: altitudes.length ? Math.max(...altitudes) : null,
     avgSpeedMps: durationSeconds > 0 ? distanceM / durationSeconds : 0,
     maxSpeedMps: maxSpeed,
-    avgPaceSecondsPerKm: distanceM > 0 ? durationSeconds / (distanceM / 1000) : null,
+    avgPaceSecondsPerKm: distanceM >= 50 && durationSeconds > 0 ? durationSeconds / (distanceM / 1000) : null,
   };
 }

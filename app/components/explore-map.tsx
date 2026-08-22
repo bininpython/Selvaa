@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { GeoJSONSource, Map as MapLibreMap, Marker } from "maplibre-gl";
+import type { GeoJSONSource, Map as MapLibreMap, Marker, StyleSpecification } from "maplibre-gl";
 import { LoaderCircle, LocateFixed, MapPin, Mountain } from "lucide-react";
 
 export type RouteCoordinate = [longitude: number, latitude: number];
@@ -14,9 +14,38 @@ type ExploreMapProps = {
   onLocated?: (coordinate: RouteCoordinate) => void;
 };
 
-const DEFAULT_CENTER: RouteCoordinate = [-43.938, -19.919];
+const DEFAULT_CENTER: RouteCoordinate = [-51.93, -14.24];
+const BASEMAP_SOURCE_ID = "carto-voyager";
+const BASEMAP_STYLE = {
+  version: 8,
+  sources: {
+    [BASEMAP_SOURCE_ID]: {
+      type: "raster",
+      tiles: [
+        "https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png",
+        "https://b.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png",
+        "https://c.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png",
+        "https://d.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png",
+      ],
+      tileSize: 256,
+      minzoom: 0,
+      maxzoom: 19,
+      attribution: "© <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a> contributors · © <a href=\"https://carto.com/attributions\">CARTO</a>",
+    },
+  },
+  layers: [{
+    id: "carto-voyager-base",
+    type: "raster",
+    source: BASEMAP_SOURCE_ID,
+    minzoom: 0,
+    maxzoom: 22,
+  }],
+} satisfies StyleSpecification;
 
-function routeFeature(route: RouteCoordinate[]) {
+function routeData(route: RouteCoordinate[]) {
+  if (route.length < 2) {
+    return { type: "FeatureCollection" as const, features: [] };
+  }
   return {
     type: "Feature" as const,
     properties: {},
@@ -33,6 +62,7 @@ export function ExploreMap({ compact = false, tracking = false, route = [], mark
   const locationMarkerRef = useRef<Marker | null>(null);
   const discoveryMarkersRef = useRef<Marker[]>([]);
   const initialRouteRef = useRef(route);
+  const [userCoordinate, setUserCoordinate] = useState<RouteCoordinate | null>(null);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
   const [ready, setReady] = useState(false);
@@ -61,29 +91,37 @@ export function ExploreMap({ compact = false, tracking = false, route = [], mark
         const initialCenter = initialRoute.at(-1) ?? DEFAULT_CENTER;
         const map = new maplibre.Map({
           container: mapNode.current,
-          style: "https://tiles.openfreemap.org/styles/liberty",
+          style: BASEMAP_STYLE,
           center: initialCenter,
-          zoom: initialRoute.length ? 15 : compact ? 11 : 6.2,
+          zoom: initialRoute.length ? 15 : compact ? 4.2 : 4.4,
           attributionControl: false,
           cooperativeGestures: true,
         });
 
         map.addControl(new maplibre.NavigationControl({ showCompass: true }), "bottom-right");
         map.addControl(new maplibre.AttributionControl({ compact: true }), "bottom-left");
-        let mapLoaded = false;
+        let baseMapReady = false;
+        let baseMapErrors = 0;
+        const finishMapLoad = () => {
+          if (cancelled || baseMapReady || !map.isSourceLoaded(BASEMAP_SOURCE_ID)) return;
+          baseMapReady = true;
+          window.clearTimeout(loadTimeout);
+          map.resize();
+          setLoading(false);
+          setFailed(false);
+          setReady(true);
+        };
         const loadTimeout = window.setTimeout(() => {
-          if (cancelled || mapLoaded) return;
-          setMapMessage("A conexão com o mapa demorou mais que o esperado. Você pode tentar novamente sem perder o GPS.");
+          if (cancelled || baseMapReady) return;
+          setMapMessage("A camada cartográfica não respondeu. Tente novamente; o GPS e a rota continuam protegidos.");
           setFailed(true);
           setLoading(false);
-        }, 15_000);
+        }, 20_000);
         map.on("load", () => {
           if (cancelled) return;
-          mapLoaded = true;
-          window.clearTimeout(loadTimeout);
           map.addSource("activity-route", {
             type: "geojson",
-            data: routeFeature(initialRoute),
+            data: routeData(initialRoute),
           });
           map.addLayer({
             id: "activity-route-line",
@@ -96,14 +134,20 @@ export function ExploreMap({ compact = false, tracking = false, route = [], mark
               "line-opacity": 0.95,
             },
           });
-          map.resize();
-          setLoading(false);
-          setFailed(false);
-          setReady(true);
+          finishMapLoad();
         });
+        map.on("sourcedata", (event) => {
+          if (event.sourceId === BASEMAP_SOURCE_ID) finishMapLoad();
+        });
+        map.on("idle", finishMapLoad);
         map.on("error", () => {
-          if (cancelled || mapLoaded) return;
-          setMapMessage("Não foi possível baixar os dados do mapa. Verifique a conexão e tente novamente.");
+          if (cancelled || baseMapReady) return;
+          baseMapErrors += 1;
+          if (baseMapErrors < 2) return;
+          window.clearTimeout(loadTimeout);
+          setMapMessage("Não foi possível baixar os blocos do mapa. Verifique a conexão e tente novamente.");
+          setFailed(true);
+          setLoading(false);
         });
         mapRef.current = map;
       } catch {
@@ -128,13 +172,35 @@ export function ExploreMap({ compact = false, tracking = false, route = [], mark
   useEffect(() => {
     if (!ready || !mapRef.current) return;
     const source = mapRef.current.getSource("activity-route") as GeoJSONSource | undefined;
-    source?.setData(routeFeature(route));
+    source?.setData(routeData(route));
 
     const current = route.at(-1);
     if (tracking && current) {
       mapRef.current.easeTo({ center: current, zoom: 16, duration: 450 });
     }
   }, [ready, route, tracking]);
+
+  useEffect(() => {
+    if (!ready || !mapRef.current) return;
+    const current = tracking ? route.at(-1) : userCoordinate;
+    if (!current) return;
+    let cancelled = false;
+    void import("maplibre-gl").then((maplibre) => {
+      if (cancelled || !mapRef.current) return;
+      if (locationMarkerRef.current) {
+        locationMarkerRef.current.setLngLat(current);
+      } else {
+        const markerNode = document.createElement("span");
+        markerNode.className = "user-location-marker";
+        markerNode.setAttribute("aria-label", tracking ? "Posição GPS atual" : "Sua localização aproximada");
+        locationMarkerRef.current = new maplibre.Marker({ element: markerNode })
+          .setLngLat(current)
+          .addTo(mapRef.current);
+      }
+      mapRef.current.easeTo({ center: current, zoom: tracking ? 16 : 14.5, duration: tracking ? 450 : 900 });
+    });
+    return () => { cancelled = true; };
+  }, [ready, route, tracking, userCoordinate]);
 
   useEffect(() => {
     if (!ready || !mapRef.current) return;
@@ -162,20 +228,9 @@ export function ExploreMap({ compact = false, tracking = false, route = [], mark
     }
 
     setLocationStatus("locating");
-    navigator.geolocation.getCurrentPosition(async ({ coords }) => {
+    navigator.geolocation.getCurrentPosition(({ coords }) => {
       const current: RouteCoordinate = [coords.longitude, coords.latitude];
-      if (mapRef.current && ready) {
-        const maplibre = await import("maplibre-gl");
-        const markerNode = document.createElement("span");
-        markerNode.className = "user-location-marker";
-        markerNode.setAttribute("aria-label", "Sua localização aproximada");
-
-        locationMarkerRef.current?.remove();
-        locationMarkerRef.current = new maplibre.Marker({ element: markerNode })
-          .setLngLat(current)
-          .addTo(mapRef.current);
-        mapRef.current.flyTo({ center: current, zoom: 14.5, duration: 900 });
-      }
+      setUserCoordinate(current);
       setLocationStatus("located");
       onLocated?.(current);
     }, () => setLocationStatus("denied"), {
@@ -187,7 +242,7 @@ export function ExploreMap({ compact = false, tracking = false, route = [], mark
 
   return (
     <div className={`map-shell ${compact ? "map-compact" : ""}`}>
-      <div ref={mapNode} className="absolute inset-0" />
+      <div ref={mapNode} className="map-canvas" />
       {loading ? <div className="map-state"><LoaderCircle className="animate-spin" size={20} /> Preparando mapa…</div> : null}
       {failed ? <div className="map-fallback"><Mountain size={28} /><strong>Mapa temporariamente indisponível</strong><span>{mapMessage}</span><button type="button" onClick={() => { setFailed(false); setLoading(true); setReady(false); setMountAttempt((attempt) => attempt + 1); }}>Tentar novamente</button></div> : null}
       {!tracking ? (
@@ -197,7 +252,7 @@ export function ExploreMap({ compact = false, tracking = false, route = [], mark
         </button>
       ) : null}
       {tracking ? <div className="live-pill"><span /> {route.length ? "GPS registrando" : "Aguardando GPS"}</div> : null}
-      {!tracking && !compact ? <div className="map-hint"><MapPin size={15} /> Trilhas aparecerão com dados da comunidade</div> : null}
+      {!tracking && !compact ? <div className="map-hint"><MapPin size={15} /> CARTO + OpenStreetMap · trilhas reais</div> : null}
     </div>
   );
 }
