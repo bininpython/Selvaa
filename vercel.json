@@ -2,5 +2,5 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nextjs",
   "installCommand": "npm install",
-  "buildCommand": "npx next build"
+  "buildCommand": "node scripts/copy-maplibre-worker.mjs && npx next build"
 }
