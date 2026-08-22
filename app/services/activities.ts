@@ -36,7 +36,7 @@ export async function publishActivity(userId: string, input: PublishActivityInpu
     activity_type: input.activityType,
     distance_m: metrics.distanceM,
     duration_seconds: input.durationSeconds,
-    moving_time_seconds: input.durationSeconds,
+    moving_time_seconds: metrics.movingTimeSeconds,
     elevation_gain_m: metrics.elevationGainM,
     elevation_loss_m: metrics.elevationLossM,
     max_altitude_m: metrics.maxAltitudeM,

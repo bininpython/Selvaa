@@ -32,7 +32,11 @@ export interface Trail {
   id: string; created_by: string | null; name: string; slug: string; description: string | null;
   location: string | null; distance_m: number; elevation_gain: number; difficulty: Difficulty;
   estimated_duration: number | null; route_geojson: GeoJSONLineString | null; latitude: number | null;
-  longitude: number | null; city: string | null; state: string | null; verified: boolean;
+  longitude: number | null; region: string | null; city: string | null; state: string | null;
+  terrain_type: string | null; max_altitude_m: number | null; best_season: string | null;
+  water_source: boolean | null; cell_signal: string | null; camping_area: boolean | null;
+  entrance_fee: number | null; parking: boolean | null; pets_allowed: boolean | null;
+  guide_required: boolean | null; verified: boolean; created_at?: string; rating?: number; review_count?: number;
 }
 
 export interface UserStatistics {
@@ -51,11 +55,31 @@ export interface FeedPost {
 export interface AdventureGroup {
   id: string; name: string; slug: string; description: string | null; avatar_url: string | null;
   city: string | null; state: string | null; privacy: "public" | "private"; member_count: number;
+  joined?: boolean; role?: "owner" | "admin" | "moderator" | "member" | null;
 }
 
 export interface OutdoorEvent {
   id: string; name: string; description: string | null; start_at: string; meeting_point: string | null;
   difficulty: string | null; distance: number | null; max_participants: number | null; group_id: string | null;
+  latitude?: number | null; longitude?: number | null; recommended_equipment?: string[] | null;
+  participant_count?: number; response?: "going" | "maybe" | "not_going" | null;
+}
+
+export interface EnvironmentReport {
+  id: string; user_id: string; trail_id: string | null; category: string; description: string;
+  latitude: number; longitude: number; photo_url: string | null;
+  status: "reported" | "confirmed" | "in_review" | "resolved";
+  confirmation_count: number; created_at: string; confirmed_by_me?: boolean;
+}
+
+export interface AppNotification {
+  id: string; user_id: string; actor_id: string | null; type: string; title: string;
+  body: string | null; data: Record<string, unknown>; read_at: string | null; created_at: string;
+}
+
+export interface Achievement {
+  id: string; code: string; name: string; description: string; icon: string | null;
+  points: number; threshold: number | null; category: string | null; unlocked?: boolean;
 }
 
 export interface RecordedPoint {

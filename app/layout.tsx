@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "maplibre-gl/dist/maplibre-gl.css";
 import "./globals.css";
+import { PwaRegister } from "./components/pwa-register";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://selva-plus.abnerlucas571.chatgpt.site"),
@@ -28,7 +29,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="pt-BR">
-      <body>{children}</body>
+      <body>{children}<PwaRegister /></body>
     </html>
   );
 }

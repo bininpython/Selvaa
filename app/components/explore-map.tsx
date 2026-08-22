@@ -46,6 +46,12 @@ export function ExploreMap({ compact = false, tracking = false, route = [], mark
       try {
         const maplibre = await import("maplibre-gl");
         if (cancelled || !mapNode.current) return;
+        const supportCanvas = document.createElement("canvas");
+        if (!supportCanvas.getContext("webgl2")) {
+          setFailed(true);
+          setLoading(false);
+          return;
+        }
 
         const initialRoute = initialRouteRef.current;
         const initialCenter = initialRoute.at(-1) ?? DEFAULT_CENTER;
@@ -59,6 +65,11 @@ export function ExploreMap({ compact = false, tracking = false, route = [], mark
 
         map.addControl(new maplibre.NavigationControl({ showCompass: true }), "bottom-right");
         map.addControl(new maplibre.AttributionControl({ compact: true }), "bottom-left");
+        map.on("error", () => {
+          if (cancelled) return;
+          setFailed(true);
+          setLoading(false);
+        });
         map.on("load", () => {
           if (cancelled) return;
           map.addSource("activity-route", {
@@ -93,7 +104,7 @@ export function ExploreMap({ compact = false, tracking = false, route = [], mark
       discoveryMarkersRef.current.forEach((marker) => marker.remove());
       discoveryMarkersRef.current = [];
       locationMarkerRef.current = null;
-      mapRef.current?.remove();
+      try { mapRef.current?.remove(); } catch { /* A partially initialized WebGL map has no painter to destroy. */ }
       mapRef.current = null;
     };
   }, [compact]);

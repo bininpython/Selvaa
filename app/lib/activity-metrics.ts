@@ -18,24 +18,29 @@ export function calculateActivityMetrics(points: RecordedPoint[], durationSecond
   let elevationGainM = 0;
   let elevationLossM = 0;
   let maxSpeed = 0;
+  let movingTimeSeconds = 0;
   const altitudes: number[] = [];
 
   for (let index = 0; index < points.length; index += 1) {
     const point = points[index];
     if (point.altitude !== null) altitudes.push(point.altitude);
-    if (point.speed !== null) maxSpeed = Math.max(maxSpeed, point.speed);
+    if (point.speed !== null && point.speed >= 0 && point.speed < 60) maxSpeed = Math.max(maxSpeed, point.speed);
     if (index === 0) continue;
-    distanceM += distanceMeters(points[index - 1], point);
+    const segmentDistance = distanceMeters(points[index - 1], point);
+    const segmentSeconds = Math.max(0, Math.min(120, (new Date(point.recordedAt).getTime() - new Date(points[index - 1].recordedAt).getTime()) / 1000));
+    distanceM += segmentDistance;
+    if (segmentSeconds > 0 && segmentDistance / segmentSeconds >= 0.5) movingTimeSeconds += segmentSeconds;
     const previousAltitude = points[index - 1].altitude;
     if (previousAltitude !== null && point.altitude !== null) {
       const delta = point.altitude - previousAltitude;
-      if (delta > 0) elevationGainM += delta;
-      else elevationLossM += Math.abs(delta);
+      if (delta >= 3) elevationGainM += delta;
+      else if (delta <= -3) elevationLossM += Math.abs(delta);
     }
   }
 
   return {
     distanceM,
+    movingTimeSeconds: Math.min(durationSeconds, Math.round(movingTimeSeconds || durationSeconds)),
     elevationGainM,
     elevationLossM,
     minAltitudeM: altitudes.length ? Math.min(...altitudes) : null,

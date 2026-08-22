@@ -23,8 +23,10 @@ export function BrandMark({ size = "md", withName = true, inverted = false }: Br
         width={pixels}
         height={pixels}
         sizes={`${pixels}px`}
+        style={{ width: pixels, height: pixels }}
         alt=""
         priority
+        unoptimized
       />
       {withName ? <span className="brand-name">SELVA<span>+</span></span> : null}
     </div>
