@@ -14,6 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      account_recovery_credentials: {
+        Row: {
+          created_at: string
+          identity_digest: string
+          keyword_digest: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          identity_digest: string
+          keyword_digest: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          identity_digest?: string
+          keyword_digest?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       achievements: {
         Row: {
           category: string | null
@@ -821,6 +845,30 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      password_recovery_attempts: {
+        Row: {
+          attempt_key: string
+          blocked_until: string | null
+          failures: number
+          last_attempt_at: string
+          window_started_at: string
+        }
+        Insert: {
+          attempt_key: string
+          blocked_until?: string | null
+          failures?: number
+          last_attempt_at?: string
+          window_started_at?: string
+        }
+        Update: {
+          attempt_key?: string
+          blocked_until?: string | null
+          failures?: number
+          last_attempt_at?: string
+          window_started_at?: string
+        }
+        Relationships: []
       }
       places: {
         Row: {

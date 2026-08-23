@@ -7,7 +7,8 @@ MVP responsivo/PWA para trilhas, trekking, montanhismo, cachoeiras, camping e co
 ## Estado do MVP
 
 - Interface inicial virgem: sem usuários, fotos, estatísticas, trilhas, posts, grupos ou eventos fictícios.
-- Sessão Supabase persistente com cadastro por nome, username e senha; login por username e senha, sem solicitar e-mail ou login social.
+- Sessão Supabase persistente com cadastro por nome, nascimento, cidade, estado, username, senha e palavra-chave; login por username e senha, sem solicitar e-mail ou login social.
+- Recuperação de senha sem e-mail por nome completo, data de nascimento e palavra-chave, com bloqueio de tentativas e acesso automático após a troca.
 - Feed real paginado com atividades, mapas, fotos privadas por URL assinada, curtidas, comentários e salvos.
 - Mapa MapLibre com CARTO/OpenStreetMap, localização consentida e descoberta de trilhas por proximidade via PostGIS.
 - Atividade GPS real com cronômetro, pausa, distância, ritmo, elevação, retomada e fila offline em IndexedDB.
@@ -36,10 +37,10 @@ Configure `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`. `
 2. Aplique, nesta ordem, todas as migrations em `supabase/migrations/`.
 3. Opcionalmente aplique `supabase/seed.sql`; ele cadastra somente a definição das conquistas, sem criar usuários ou conteúdo social.
 4. Configure URL e chave pública em `.env.local`.
-5. Implante a Edge Function pública `username-signup` com `verify_jwt = false`; ela valida o cadastro, cria o identificador técnico e confirma a conta no backend.
+5. Implante as Edge Functions públicas `username-signup` e `password-recovery` com `verify_jwt = false`; elas validam cadastro/recuperação, aplicam limitação de tentativas e executam ações administrativas apenas no backend.
 6. Mantenha `activity-photos` privado; o app entrega fotos conforme a visibilidade por URLs temporárias.
 
-O usuário nunca informa nem visualiza um e-mail. O Supabase Auth recebe internamente um endereço técnico reservado, derivado do username, exclusivamente para manter sessões e senhas com segurança. A função usa a chave administrativa apenas no ambiente seguro do Supabase; nenhuma chave privilegiada é enviada ao frontend.
+O usuário nunca informa nem visualiza um e-mail. O Supabase Auth recebe internamente um endereço técnico reservado, derivado do username, exclusivamente para manter sessões e senhas com segurança. Nome + data de nascimento e palavra-chave são convertidos em HMACs no backend; a palavra-chave e a data não são gravadas em texto aberto. As funções usam a chave administrativa apenas no ambiente seguro do Supabase; nenhuma chave privilegiada é enviada ao frontend.
 
 O banco é entregue sem perfis, trilhas, posts, grupos, eventos ou atividades fictícias. O `seed.sql` contém apenas as regras de conquistas.
 
@@ -73,5 +74,6 @@ Mover `app/types` e `app/services` para `packages/types` e `packages/api`, crian
 - Papéis administrativos de grupos não podem ser autoatribuídos.
 - Fotos de atividades respeitam a visibilidade pública, seguidores ou privada.
 - A service-role key não é usada no frontend nem faz parte das variáveis públicas.
+- Credenciais de recuperação não são legíveis pelos clientes, têm RLS sem políticas públicas e são protegidas por HMAC e bloqueio persistente após tentativas inválidas.
 - Localização precisa, pontos inicial/final e visibilidade ficam sob controle do usuário.
 - O SELVA+ não substitui serviços oficiais de emergência.

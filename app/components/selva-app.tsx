@@ -4,8 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import type { User } from "@supabase/supabase-js";
 import {
-  Bell, Bookmark, Camera, Check, ChevronRight, Clock3, Compass, Eye, Flag, Footprints, Heart, Home,
-  Leaf, LoaderCircle, LogOut, MapPin, MessageCircle, Mountain, Navigation, Pause, Play, Plus, Route,
+  ArrowLeft, Bell, Bookmark, Camera, Check, ChevronRight, Clock3, Compass, Eye, Flag, Footprints, Heart, Home,
+  KeyRound, Leaf, LoaderCircle, LogOut, MapPin, MessageCircle, Mountain, Navigation, Pause, Play, Plus, Route,
   Search, Send, Settings, ShieldCheck, Sparkles, TentTree, Trees, Trophy, UserRound,
   Users, Waves, X,
 } from "lucide-react";
@@ -22,7 +22,7 @@ import {
 } from "../lib/offline-route";
 import { createClient, isSupabaseConfigured } from "../lib/supabase/client";
 import { publishActivity } from "../services/activities";
-import { signInWithUsername, signUpWithUsername } from "../services/auth";
+import { recoverPassword, signInWithUsername, signUpWithUsername } from "../services/auth";
 import {
   addComment, createEnvironmentReport, globalSearch, loadCommunity, loadFeed, loadProfile, loadStatistics,
   loadWeeklyStatistics, toggleFollow, toggleLike, toggleSavedPost, type GlobalSearchResult,
@@ -48,6 +48,11 @@ const pillars = [
 const discoveryTypes = [
   { label: "Trilhas", icon: Footprints }, { label: "Cachoeiras", icon: Waves }, { label: "Picos", icon: Mountain },
   { label: "Camping", icon: TentTree }, { label: "Parques", icon: Trees },
+] as const;
+
+const brazilStates = [
+  "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG",
+  "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO",
 ] as const;
 
 function formatTime(seconds: number) {
@@ -204,21 +209,159 @@ function SearchPanel({ user, onAuth, onClose, notify }: { user: User | null; onA
   async function select(result: GlobalSearchResult) { if (result.type !== "user") { onClose(); return; } if (!user) { onAuth(); return; } try { const following = await toggleFollow(user.id, result.id); notify(following ? `Agora você segue ${result.title}` : `Você deixou de seguir ${result.title}`); } catch (error) { notify(error instanceof Error ? error.message : "Falha ao seguir perfil"); } }
   return <div className="modal-layer search-layer" onMouseDown={onClose}><div className="search-panel" onMouseDown={(event) => event.stopPropagation()}><div className="search-input-modal"><Search size={20} /><input value={query} onChange={(event) => { setQuery(event.target.value); if (event.target.value.length < 2) setResults([]); }} autoFocus placeholder="Buscar no SELVA+" /><button onClick={onClose}><X size={19} /></button></div>{query.length < 2 ? <><p className="search-label">PESQUISE POR CATEGORIA</p><div className="search-categories">{discoveryTypes.map(({ label, icon: Icon }) => <button key={label} onClick={() => setQuery(label)}><Icon size={17} />{label}</button>)}<button onClick={() => setQuery("grupos")}><Users size={17} />Grupos</button><button onClick={() => setQuery("eventos")}><Clock3 size={17} />Eventos</button></div></> : null}{loading ? <div className="loading-line"><LoaderCircle className="animate-spin" size={18} /> Pesquisando…</div> : results.length ? <div className="search-results">{results.map((result) => { const Icon = icons[result.type]; return <button key={`${result.type}-${result.id}`} onClick={() => void select(result)}><span><Icon size={18} /></span><div><strong>{result.title}</strong><small>{result.subtitle}{result.type === "user" ? " · toque para seguir/deixar de seguir" : ""}</small></div>{result.type === "user" ? <Plus size={17} /> : <ChevronRight size={17} />}</button>; })}</div> : query.length >= 2 ? <div className="search-empty"><Search size={24} /><strong>Nenhum resultado</strong><span>Tente outro nome, username ou local.</span></div> : null}</div></div>;
 }
+type AuthMode = "login" | "register" | "recover";
+
 function AuthPanel({ onClose, notify }: { onClose: () => void; notify: (text: string) => void }) {
-  const [mode, setMode] = useState<"login" | "register">("login"); const [loading, setLoading] = useState(false); const [error, setError] = useState("");
+  const [mode, setMode] = useState<AuthMode>("login");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const isRegister = mode === "register";
+  const isRecover = mode === "recover";
+
+  function changeMode(nextMode: AuthMode) {
+    setMode(nextMode);
+    setError("");
+  }
+
   async function submit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault(); setError("");
-    if (!isSupabaseConfigured) { setError("O acesso está temporariamente indisponível."); return; }
-    const form = new FormData(event.currentTarget); const username = String(form.get("username")); const password = String(form.get("password"));
+    event.preventDefault();
+    setError("");
+    if (!isSupabaseConfigured) {
+      setError("O acesso está temporariamente indisponível.");
+      return;
+    }
+
+    const form = new FormData(event.currentTarget);
+    const password = String(form.get(isRecover ? "new_password" : "password") ?? "");
+    const confirmation = String(form.get(isRecover ? "confirm_new_password" : "confirm_password") ?? "");
+    if ((isRegister || isRecover) && password !== confirmation) {
+      setError("As senhas informadas não são iguais.");
+      return;
+    }
+
     setLoading(true);
     try {
-      if (mode === "login") await signInWithUsername(username, password);
-      else await signUpWithUsername({ fullName: String(form.get("full_name")), username, password });
-      notify(mode === "login" ? "Login realizado com sucesso" : "Conta criada. Bem-vindo ao SELVA+!"); onClose();
-    } catch (submitError) { setError(submitError instanceof Error ? submitError.message : "Não foi possível acessar sua conta."); }
-    finally { setLoading(false); }
+      if (mode === "login") {
+        await signInWithUsername(String(form.get("username")), password);
+        notify("Login realizado com sucesso");
+      } else if (mode === "register") {
+        await signUpWithUsername({
+          fullName: String(form.get("full_name")),
+          username: String(form.get("username")),
+          password,
+          birthDate: String(form.get("birth_date")),
+          city: String(form.get("city")),
+          state: String(form.get("state")),
+          recoveryKeyword: String(form.get("recovery_keyword")),
+        });
+        notify("Conta criada e protegida. Bem-vindo ao SELVA+!");
+      } else {
+        await recoverPassword({
+          fullName: String(form.get("full_name")),
+          birthDate: String(form.get("birth_date")),
+          recoveryKeyword: String(form.get("recovery_keyword")),
+          newPassword: password,
+        });
+        notify("Nova senha definida. Sua conta já está conectada.");
+      }
+      onClose();
+    } catch (submitError) {
+      setError(submitError instanceof Error ? submitError.message : "Não foi possível acessar sua conta.");
+    } finally {
+      setLoading(false);
+    }
   }
-  return <div className="modal-layer auth-layer" role="dialog" aria-modal="true" aria-label="Acessar SELVA+"><div className="auth-panel"><button className="auth-close" onClick={onClose} aria-label="Fechar"><X size={20} /></button><BrandMark size="lg" /><div className="auth-heading"><span className="eyebrow">SUA CONTA SELVA+</span><h2>{mode === "login" ? "Boas-vindas de volta" : "Comece sua jornada"}</h2><p>{mode === "login" ? "Entre com seu usuário e sua senha." : "Sem e-mail e sem etapas desnecessárias."}</p></div><div className="auth-mode-tabs" role="tablist" aria-label="Escolha entrar ou criar conta"><button type="button" role="tab" aria-selected={mode === "login"} className={mode === "login" ? "active" : ""} onClick={() => { setMode("login"); setError(""); }}>ENTRAR</button><button type="button" role="tab" aria-selected={mode === "register"} className={mode === "register" ? "active" : ""} onClick={() => { setMode("register"); setError(""); }}>CRIAR CONTA</button></div><form onSubmit={submit}>{mode === "register" ? <label>Seu nome<input name="full_name" required minLength={2} maxLength={80} autoComplete="name" placeholder="Como você quer ser chamado" /></label> : null}<label>Nome de usuário<input name="username" required minLength={3} maxLength={30} pattern="@?[a-zA-Z0-9_]{3,30}" autoCapitalize="none" autoCorrect="off" autoComplete="username" placeholder="ex.: abnerlucas" /></label><label>Senha<input name="password" type="password" required minLength={8} maxLength={72} autoComplete={mode === "login" ? "current-password" : "new-password"} placeholder="Mínimo 8 caracteres" /></label>{mode === "register" ? <p className="password-note"><ShieldCheck size={15} /> Seu username será usado para entrar. Guarde sua senha com segurança.</p> : null}{error ? <p className="auth-error" role="alert">{error}</p> : null}<button className="auth-submit" disabled={loading}>{loading ? <><LoaderCircle className="animate-spin" size={17} /> Aguarde…</> : mode === "login" ? "ENTRAR" : "CRIAR CONTA"}</button></form><div className="privacy-note"><Eye size={15} /><span>Não pedimos e-mail. Sua localização precisa nunca é publicada automaticamente.</span></div></div></div>;
+
+  return (
+    <div className="modal-layer auth-layer" role="dialog" aria-modal="true" aria-label="Acessar SELVA+">
+      <div className="auth-panel">
+        <button className="auth-close" onClick={onClose} aria-label="Fechar"><X size={20} /></button>
+        {isRecover ? (
+          <button className="auth-back" type="button" onClick={() => changeMode("login")}>
+            <ArrowLeft size={16} /> Voltar ao login
+          </button>
+        ) : <BrandMark size="lg" />}
+
+        <div className="auth-heading">
+          <span className="eyebrow">SUA CONTA SELVA+</span>
+          <h2>{mode === "login" ? "Boas-vindas de volta" : isRegister ? "Comece sua jornada" : "Recupere sua conta"}</h2>
+          <p>{mode === "login" ? "Entre com seu usuário e sua senha." : isRegister ? "Crie seu acesso sem e-mail e proteja a recuperação." : "Confirme seus dados pessoais para definir uma nova senha."}</p>
+        </div>
+
+        {!isRecover ? (
+          <div className="auth-mode-tabs" role="tablist" aria-label="Escolha entrar ou criar conta">
+            <button type="button" role="tab" aria-selected={mode === "login"} className={mode === "login" ? "active" : ""} onClick={() => changeMode("login")}>ENTRAR</button>
+            <button type="button" role="tab" aria-selected={isRegister} className={isRegister ? "active" : ""} onClick={() => changeMode("register")}>CRIAR CONTA</button>
+          </div>
+        ) : null}
+
+        <form key={mode} onSubmit={submit}>
+          {isRegister || isRecover ? (
+            <>
+              <label>Nome completo
+                <input name="full_name" required minLength={2} maxLength={80} autoComplete="name" placeholder="Digite exatamente como no cadastro" />
+              </label>
+              <label>Data de nascimento
+                <input name="birth_date" type="date" required autoComplete="bday" />
+              </label>
+            </>
+          ) : null}
+
+          {isRegister ? (
+            <div className="auth-row">
+              <label>Cidade
+                <input name="city" required minLength={2} maxLength={80} autoComplete="address-level2" placeholder="Sua cidade" />
+              </label>
+              <label>Estado
+                <select name="state" required defaultValue="" autoComplete="address-level1">
+                  <option value="" disabled>UF</option>
+                  {brazilStates.map((state) => <option key={state} value={state}>{state}</option>)}
+                </select>
+              </label>
+            </div>
+          ) : null}
+
+          {!isRecover ? (
+            <label>Nome de usuário
+              <input name="username" required minLength={3} maxLength={30} pattern="@?[a-zA-Z0-9_]{3,30}" autoCapitalize="none" autoCorrect="off" autoComplete="username" placeholder="ex.: abnerlucas" />
+            </label>
+          ) : null}
+
+          <label>{isRecover ? "Nova senha" : "Senha"}
+            <input name={isRecover ? "new_password" : "password"} type="password" required minLength={8} maxLength={72} autoComplete={mode === "login" ? "current-password" : "new-password"} placeholder="Mínimo 8 caracteres" />
+          </label>
+
+          {isRegister || isRecover ? (
+            <label>{isRecover ? "Confirme a nova senha" : "Confirme a senha"}
+              <input name={isRecover ? "confirm_new_password" : "confirm_password"} type="password" required minLength={8} maxLength={72} autoComplete="new-password" placeholder="Repita a senha" />
+            </label>
+          ) : null}
+
+          {isRegister || isRecover ? (
+            <label>Palavra-chave de recuperação
+              <input name="recovery_keyword" type="password" required minLength={4} maxLength={80} autoComplete="off" placeholder="Ex.: seu animal favorito + uma palavra" />
+              <small className="field-help">{isRegister ? "Use algo que só você saiba e memorize. Ela não poderá ser visualizada depois." : "Digite a mesma palavra-chave criada no cadastro."}</small>
+            </label>
+          ) : null}
+
+          {isRegister ? (
+            <p className="password-note"><ShieldCheck size={15} /> Nome, nascimento e palavra-chave formarão sua recuperação segura. A palavra-chave não é salva em texto aberto.</p>
+          ) : null}
+          {error ? <p className="auth-error" role="alert">{error}</p> : null}
+          <button className="auth-submit" disabled={loading}>
+            {loading ? <><LoaderCircle className="animate-spin" size={17} /> Aguarde…</> : mode === "login" ? "ENTRAR" : isRegister ? "CRIAR CONTA" : "DEFINIR NOVA SENHA"}
+          </button>
+        </form>
+
+        {mode === "login" ? (
+          <button className="auth-forgot" type="button" onClick={() => changeMode("recover")}>
+            <KeyRound size={15} /> Esqueci minha senha
+          </button>
+        ) : null}
+        <div className="privacy-note"><Eye size={15} /><span>Sem e-mail. Seus dados de recuperação ficam protegidos e sua localização nunca é publicada automaticamente.</span></div>
+      </div>
+    </div>
+  );
 }
 
 function EnvironmentReportPanel({ user, onClose, notify }: { user: User; onClose: () => void; notify: (text: string) => void }) {

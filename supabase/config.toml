@@ -17,6 +17,9 @@ enable_signup = true
 [functions.username-signup]
 verify_jwt = false
 
+[functions.password-recovery]
+verify_jwt = false
+
 [storage]
 enabled = true
 file_size_limit = "25MiB"
